@@ -1,0 +1,12 @@
+package com.ser_databus.tpg.prep.tree;
+
+public enum PruneReason {
+    TOO_FEW_GAMES,
+    SUBPAR_EVAL,
+    SUBPAR_EVAL_SUBSEQUENT,
+    SUBPAR_EVAL_CHAIN,
+    SUBPAR_EVAL_AND_SCORE,
+    SUBPAR_EVAL_AND_PREP_EVAL,
+    SUBPAR_BOTH_VP_AND_LICHESS_SCORE,
+    TOO_MANY_BRANCHES,
+}
