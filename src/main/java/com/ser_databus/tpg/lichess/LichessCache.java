@@ -6,20 +6,27 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.*;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
+/**
+ * Thread-safe Lichess position cache. New positions are kept in memory immediately and appended to the cache
+ * file only when {@link #flush()} is called.
+ */
 @Slf4j
 public class LichessCache {
     private static final String CACHE_FILE = "src/main/resources/lichessCache.txt";
 
-    ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    private final Map<String, LichessPosition> movesCache = new HashMap<>();
+    private final Map<String, LichessPosition> movesCache = new ConcurrentHashMap<>();
+    /** Cache file lines added since the last flush. */
+    private final ConcurrentLinkedQueue<String> pendingRows = new ConcurrentLinkedQueue<>();
 
     public LichessCache() {
-        loadCache();
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        loadCache();
     }
 
     private void loadCache() {
@@ -41,15 +48,7 @@ public class LichessCache {
         }
     }
 
-    private void saveRow(String key, String positionAsString) {
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(CACHE_FILE, true))) {
-            bw.write(key + "=" + positionAsString + "\n");
-        } catch (IOException e) {
-            log.error("Error while appending a row to the lichess cache", e);
-        }
-    }
-
-    private String makeKey(String fen, LichessRatingSelector ratingSelector) {
+    public String makeKey(String fen, LichessRatingSelector ratingSelector) {
         return fen + "|" + (ratingSelector.isMaster ? "masters" :
                 ratingSelector.low.rating + "|" + ratingSelector.high.rating);
     }
@@ -60,8 +59,27 @@ public class LichessCache {
 
     public void put(String fen, LichessRatingSelector ratingSelector, LichessPosition value) throws JsonProcessingException {
         String key = makeKey(fen, ratingSelector);
-        movesCache.put(key, value);
-        saveRow(key, lichessPositionToJson(value));
+        if (movesCache.putIfAbsent(key, value) == null) {
+            pendingRows.add(key + "=" + lichessPositionToJson(value) + "\n");
+        }
+    }
+
+    /** Appends all positions fetched since the previous flush to the cache file. */
+    public synchronized void flush() {
+        if (pendingRows.isEmpty()) {
+            return;
+        }
+        int written = 0;
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(CACHE_FILE, true))) {
+            String row;
+            while ((row = pendingRows.poll()) != null) {
+                bw.write(row);
+                written++;
+            }
+        } catch (IOException e) {
+            log.error("Error while appending rows to the lichess cache", e);
+        }
+        log.debug("Lichess cache: {} new positions are stored", written);
     }
 
     public LichessPosition jsonToLichessPosition(String json) throws JsonProcessingException {

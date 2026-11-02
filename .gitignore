@@ -1,5 +1,8 @@
 target/
+raw/
 .idea/
 *.iml
 src/main/resources/evalCache.txt
 src/main/resources/lichessCache.txt
+data/
+*.properties

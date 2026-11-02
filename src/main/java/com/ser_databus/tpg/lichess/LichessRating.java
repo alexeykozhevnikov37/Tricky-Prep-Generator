@@ -16,4 +16,23 @@ public enum LichessRating {
     LichessRating(int rating) {
         this.rating = rating;
     }
+
+    public int getRating() {
+        return rating;
+    }
+
+    /** @return the rating bucket with exactly this rating, or null if there is none */
+    public static LichessRating fromRating(int rating) {
+        for (LichessRating lr : values()) {
+            if (lr.rating == rating) {
+                return lr;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public String toString() {
+        return Integer.toString(rating);
+    }
 }

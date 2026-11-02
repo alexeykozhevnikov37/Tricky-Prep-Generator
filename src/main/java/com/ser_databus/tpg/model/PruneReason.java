@@ -1,4 +1,4 @@
-package com.ser_databus.tpg.prep.tree;
+package com.ser_databus.tpg.model;
 
 public enum PruneReason {
     TOO_FEW_GAMES,

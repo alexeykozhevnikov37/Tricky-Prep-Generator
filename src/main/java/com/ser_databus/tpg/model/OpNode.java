@@ -1,4 +1,4 @@
-package com.ser_databus.tpg.prep.tree;
+package com.ser_databus.tpg.model;
 
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.move.Move;
@@ -19,8 +19,8 @@ public class OpNode extends Node {
     public double branchingFactor;
 
     public MyNode createChild(Move move, double moveChance) {
-        MoveHistory newMoveHistory = moveHistory.prolong(move);
-        Board newBoard = board.clone();
+        Board newBoard = board();
+        MoveHistory newMoveHistory = moveHistory.prolong(newBoard, move);
         newBoard.doMove(move);
         MyNode myNode = new MyNode(newBoard, newMoveHistory, moveChance, depth + 1, this);
         moveToNode.put(move, myNode);
@@ -34,8 +34,9 @@ public class OpNode extends Node {
             FrozenNode frozenNode = entry.getValue().freeze();
             moveToFrozenNode.put(entry.getKey(), frozenNode);
         }
-        return new FrozenOpNode(moveToFrozenNode, board, fen, chance, depth, moveHistory, normEval, isPruned,
-                pruneReason, vp, lichessScore, cumulativeVariety, leaves, branches, branchingFactor);
+        return new FrozenOpNode(moveToFrozenNode, fen, chance, depth, moveHistory, normEval, correctedNormEval,
+                isPruned, pruneReason, vp, lichessScore, lichessVp, getThickness(), leaves, branches,
+                branchingFactor);
     }
 
     /**
