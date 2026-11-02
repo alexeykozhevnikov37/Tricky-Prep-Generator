@@ -8,7 +8,9 @@ import com.github.bhlangonijr.chesslib.move.Move;
 import com.github.bhlangonijr.chesslib.move.MoveGenerator;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Replays the first plies of a game and returns, for every ply, the position before the move ({@link PositionKey})
@@ -22,6 +24,16 @@ public class GameReplayer {
     }
 
     public record ReplayedGame(Outcome outcome, List<Ply> plies) {
+    }
+
+    /**
+     * A distinct position of a game and the last move played from it, or uci/san null if no move was played from it
+     * (the final position, or the position after the last replayed ply).
+     */
+    public record UniquePly(String fen, String uci, String san) {
+    }
+
+    public record UniqueGame(Outcome outcome, List<UniquePly> positions) {
     }
 
     public static class SanException extends Exception {
@@ -59,6 +71,36 @@ public class GameReplayer {
             board.doMove(move);
         }
         return new ReplayedGame(outcome, plies);
+    }
+
+    /**
+     * Replays the first plies like {@link #replay}, but returns every distinct position only once, the way the Lichess
+     * opening explorer counts a game: a position that occurs several times keeps the <b>last</b> move played from it.
+     * The position after the last replayed ply is included too (without a move, unless it occurred before with one).
+     * Positions are in the order of their first occurrence.
+     */
+    public UniqueGame replayUnique(Outcome outcome, String moveText) throws SanException {
+        List<String> sans = extractSans(moveText, maxPlies);
+        List<UniquePly> positions = new ArrayList<>(sans.size() + 1);
+        Map<String, Integer> indexByFen = new HashMap<>();
+        Board board = new Board();
+        for (String san : sans) {
+            Move move = sanToMove(board, san);
+            String fen = PositionKey.of(board);
+            UniquePly ply = new UniquePly(fen, toLichessUci(board, move), cleanSan(san));
+            Integer index = indexByFen.putIfAbsent(fen, positions.size());
+            if (index == null) {
+                positions.add(ply);
+            } else {
+                positions.set(index, ply);
+            }
+            board.doMove(move);
+        }
+        String last = PositionKey.of(board);
+        if (!indexByFen.containsKey(last)) {
+            positions.add(new UniquePly(last, null, null));
+        }
+        return new UniqueGame(outcome, positions);
     }
 
     /** Splits move text into SAN tokens, skipping move numbers, results, comments, variations and NAGs. */

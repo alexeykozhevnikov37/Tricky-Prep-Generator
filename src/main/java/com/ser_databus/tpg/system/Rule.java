@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
  * A rule of a system. Rules are applied in this order: exact positions, then reactions, then setups; where none
  * applies, I play like the crowd.
  */
-public sealed interface Rule permits Rule.ExactRule, Rule.ReactionRule, Rule.SetupRule {
+public interface Rule {
     String describe();
 
     /**
