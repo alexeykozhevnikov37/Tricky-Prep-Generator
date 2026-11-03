@@ -2,6 +2,7 @@ package com.ser_databus.tpg.lichessdb;
 
 import com.ser_databus.tpg.elite.FileProgress;
 import com.ser_databus.tpg.elite.PositionKey;
+import com.ser_databus.tpg.lichess.LichessRating;
 import com.ser_databus.tpg.util.RocksDbMemory;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
@@ -26,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 /**
  * RocksDB storage of the rating-banded Lichess index (the counterpart of
@@ -53,7 +55,9 @@ public class BandedIndexStore implements AutoCloseable {
         format.put("valueFormat", BandedPositionCodec.FORMAT);
         format.put("maxPlies", Integer.toString(MAX_PLIES));
         format.put("speeds", SPEEDS);
-        format.put("buckets", "lichess-average-rating");
+        format.put("filters", GameFilter.FORMAT);
+        format.put("buckets", "lichess-average-rating:" + GameFilter.INDEXED_BUCKETS.stream()
+                .map(LichessRating::toString).sorted().collect(Collectors.joining(",")));
         FORMAT = Collections.unmodifiableMap(format);
         RocksDB.loadLibrary();
     }

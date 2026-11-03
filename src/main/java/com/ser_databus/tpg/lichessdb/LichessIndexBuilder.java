@@ -28,7 +28,9 @@ import java.util.concurrent.TimeUnit;
  * (<a href="https://database.lichess.org/">database.lichess.org</a>) in RocksDB, the way the Lichess opening explorer
  * counts them:
  * <ul>
- *     <li>only blitz, rapid and classical games, no bots, both ratings and the result known ({@link GameFilter});</li>
+ *     <li>only blitz, rapid and classical games, no bots, both ratings and the result known, and only the rating
+ *     buckets 2000, 2200 and 2500; no abandoned games or rules infractions, no rating gap over 300, at least 10
+ *     plies ({@link GameFilter});</li>
  *     <li>the first {@value BandedIndexStore#MAX_PLIES} plies of each game, each position counted once per game
  *     ({@link GameReplayer#replayUnique});</li>
  *     <li>per position and rating bucket of the game ({@link RatingBuckets}): white wins / draws / black wins of the
@@ -355,7 +357,11 @@ public class LichessIndexBuilder {
                 return verdict.skip();
             }
             try {
-                return new Accepted(verdict.bucket().ordinal(), replayer.replayUnique(verdict.outcome(), g.moveText()));
+                GameReplayer.UniqueGame replayed = replayer.replayUnique(verdict.outcome(), g.moveText());
+                if (!GameFilter.isLongEnough(replayed.plies())) {
+                    return GameFilter.SkipReason.SHORT_GAME;
+                }
+                return new Accepted(verdict.bucket().ordinal(), replayed);
             } catch (GameReplayer.SanException | RuntimeException e) {
                 return e;
             }

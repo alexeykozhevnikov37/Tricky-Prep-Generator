@@ -15,8 +15,9 @@ public class GameReplayerUniqueTest {
 
     @Test
     void includesTheFinalPositionWithoutMove() throws Exception {
-        List<GameReplayer.UniquePly> positions = replayer.replayUnique(GameReplayer.Outcome.WHITE,
-                "1. e4 e5 2. Nf3 Nc6 1-0").positions();
+        GameReplayer.UniqueGame game = replayer.replayUnique(GameReplayer.Outcome.WHITE, "1. e4 e5 2. Nf3 Nc6 1-0");
+        assertEquals(4, game.plies());
+        List<GameReplayer.UniquePly> positions = game.positions();
         assertEquals(5, positions.size());
         assertEquals(START, positions.get(0).fen());
         assertEquals("e2e4", positions.get(0).uci());
@@ -56,8 +57,9 @@ public class GameReplayerUniqueTest {
     @Test
     void stopsAtMaxPlies() throws Exception {
         GameReplayer two = new GameReplayer(2);
-        List<GameReplayer.UniquePly> positions = two.replayUnique(GameReplayer.Outcome.DRAW,
-                "1. d4 d5 2. c4 e6").positions();
+        GameReplayer.UniqueGame game = two.replayUnique(GameReplayer.Outcome.DRAW, "1. d4 d5 2. c4 e6");
+        assertEquals(2, game.plies());
+        List<GameReplayer.UniquePly> positions = game.positions();
         // start (d4), after d4 (d5), after d4 d5 (no move: c4 is beyond the limit)
         assertEquals(3, positions.size());
         assertEquals("d7d5", positions.get(1).uci());

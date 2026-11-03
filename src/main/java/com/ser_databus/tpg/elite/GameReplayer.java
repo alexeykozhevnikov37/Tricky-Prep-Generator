@@ -33,7 +33,8 @@ public class GameReplayer {
     public record UniquePly(String fen, String uci, String san) {
     }
 
-    public record UniqueGame(Outcome outcome, List<UniquePly> positions) {
+    /** @param plies number of plies replayed (at most the limit of the replayer) */
+    public record UniqueGame(Outcome outcome, List<UniquePly> positions, int plies) {
     }
 
     public static class SanException extends Exception {
@@ -100,7 +101,7 @@ public class GameReplayer {
         if (!indexByFen.containsKey(last)) {
             positions.add(new UniquePly(last, null, null));
         }
-        return new UniqueGame(outcome, positions);
+        return new UniqueGame(outcome, positions, sans.size());
     }
 
     /** Splits move text into SAN tokens, skipping move numbers, results, comments, variations and NAGs. */

@@ -22,7 +22,8 @@ public class PgnGameReader implements Closeable {
      * A game with the tags the Lichess dump index needs. Tag values are as in the file (null if the tag is missing).
      */
     public record TaggedGame(String result, String moveText, String whiteElo, String blackElo, String timeControl,
-                             String whiteTitle, String blackTitle, String variant, String fen) {
+                             String whiteTitle, String blackTitle, String variant, String fen,
+                             String termination) {
     }
 
     private static final int BUFFER_SIZE = 1 << 20;
@@ -61,6 +62,7 @@ public class PgnGameReader implements Closeable {
         String blackTitle = null;
         String variant = null;
         String fen = null;
+        String termination = null;
         StringBuilder moveText = new StringBuilder();
         boolean inMoveText = false;
         boolean anyContent = false;
@@ -76,7 +78,7 @@ public class PgnGameReader implements Closeable {
                     // The tag section of the next game has started (the second case is a game without move text)
                     pendingLine = line;
                     return new TaggedGame(result, moveText.toString(), whiteElo, blackElo, timeControl, whiteTitle,
-                            blackTitle, variant, fen);
+                            blackTitle, variant, fen, termination);
                 }
                 sawEvent |= isEvent;
                 anyContent = true;
@@ -90,6 +92,7 @@ public class PgnGameReader implements Closeable {
                     case "BlackTitle" -> blackTitle = extractTagValue(trimmed);
                     case "Variant" -> variant = extractTagValue(trimmed);
                     case "FEN" -> fen = extractTagValue(trimmed);
+                    case "Termination" -> termination = extractTagValue(trimmed);
                     default -> {
                         // not needed
                     }
@@ -107,7 +110,7 @@ public class PgnGameReader implements Closeable {
         eof = true;
         return anyContent
                 ? new TaggedGame(result, moveText.toString(), whiteElo, blackElo, timeControl, whiteTitle, blackTitle,
-                variant, fen)
+                variant, fen, termination)
                 : null;
     }
 
