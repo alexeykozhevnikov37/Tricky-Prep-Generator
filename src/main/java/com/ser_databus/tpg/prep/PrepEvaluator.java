@@ -232,6 +232,7 @@ public class PrepEvaluator {
             searchTree.evalDepth = bestLine.get().depth;
             LichessPosition rootPosition = lichessClient.getPosition(fen, lichessRatingSelector);
             searchTree.lichessScore = getAverageScore(rootPosition, side);
+            searchTree.lichessGames = rootPosition.getGames();
         }
         // Just to fix this value, so it doesn't go awry later
         searchTree.correctedNormEval = searchTree.normEval;
@@ -671,6 +672,7 @@ public class PrepEvaluator {
             analysis = await(analyzeMyNodeAsync(myNode, normEvalBenchmark));
         }
         myNode.lichessScore = getAverageScore(analysis.position(), side);
+        myNode.lichessGames = analysis.position().getGames();
         myNode.normEval = analysis.bestNormEval();
         myNode.evalDepth = analysis.bestEvalDepth();
         myNode.myViableMoves = analysis.myViableMoves();
@@ -678,6 +680,7 @@ public class PrepEvaluator {
             Move myMove = candidate.move();
             OpNode child = myNode.createChild(myMove);
             child.lichessScore = getAverageScore(candidate.positionAfter(), side);
+            child.lichessGames = candidate.positionAfter().getGames();
             child.normEval = candidate.normEval();
             child.evalDepth = candidate.evalDepth();
 
@@ -884,7 +887,6 @@ public class PrepEvaluator {
         myNode.normEval = normalizeEval(lineEval.get().eval);
         myNode.evalDepth = lineEval.get().depth;
         myNode.correctedNormEval = myNode.normEval;
-        myNode.vp = myNode.normEval;
         myNode.isStubLeafNode = true;
         myNode.chosenPrepMove = bestMove;
         log.trace("makeNodeStubLeaf: getting my position: {}", myNode.moveHistory);
@@ -895,7 +897,9 @@ public class PrepEvaluator {
                 .findAny()
                 .orElse(opMoveStat);
         myNode.lichessScore = getAverageScore(myMoveStats, side);
+        myNode.lichessGames = myMoveStats == null ? 0 : myMoveStats.getGames();
         myNode.lichessVp = myNode.lichessScore;
+        myNode.vp = getNodeValue(myNode);
         myNode.moveHistory = myNode.moveHistory.prolong(board, bestMove);
         myLeavesCreated++;
         log.trace("Created stub leaf node {}", myNode);
@@ -960,7 +964,7 @@ public class PrepEvaluator {
                 myNode.leaves = leaves;
                 myNode.branches = branches + 1; // +1 because the node itself is a branch
             } else {
-                myNode.vp = myNode.normEval;
+                myNode.vp = getNodeValue(myNode);
                 myNode.correctedNormEval = myNode.normEval;
                 myNode.leaves = 1;
             }
@@ -969,7 +973,7 @@ public class PrepEvaluator {
                 log.trace("calculateNodeValuesRecursive: getting empty op position: {}", opNode.moveHistory);
                 LichessPosition lichessPosition = lichessClient.getPosition(opNode.fen, lichessRatingSelector);
                 opNode.lichessVp = getAverageScore(lichessPosition, side);
-                opNode.vp = opNode.normEval;
+                opNode.vp = getNodeValue(opNode);
                 opNode.correctedNormEval = opNode.normEval;
                 opNode.leaves = 1;
                 return;
@@ -999,7 +1003,7 @@ public class PrepEvaluator {
                 }
             }
             double offbeatContinuationChance = opNode.chance - chanceSum;
-            double offbeatContinuationVPWeight = opNode.normEval * offbeatContinuationChance;
+            double offbeatContinuationVPWeight = getNodeValue(opNode) * offbeatContinuationChance;
             double offbeatContinuationLichessVpWeight = opNode.lichessScore * offbeatContinuationChance;
             opNode.vp = (weightedVPSum + offbeatContinuationVPWeight) / opNode.chance;
             opNode.lichessVp = (weightedLichessVPSum + offbeatContinuationLichessVpWeight) / opNode.chance;
@@ -1007,6 +1011,20 @@ public class PrepEvaluator {
             opNode.branches = branches;
             opNode.leaves = leaves;
         }
+    }
+
+    /**
+     * The value of the node's position where the prep line ends there (or for the offbeat continuations), depending
+     * on the {@link NodeEvaluationMethod}: the engine's normalized eval, or the Lichess score of the position shrunk
+     * toward it by {@link Const#NODE_VALUE_PRIOR_GAMES} games, so that it's close to the engine's eval when the
+     * position was played in few games and approaches the Lichess score as the number of games grows.
+     */
+    private double getNodeValue(Node node) {
+        if (settings.getNodeEvaluationMethod() == NodeEvaluationMethod.STOCKFISH || node.lichessGames <= 0) {
+            return node.normEval;
+        }
+        double games = node.lichessGames;
+        return (node.lichessScore * games + node.normEval * NODE_VALUE_PRIOR_GAMES) / (games + NODE_VALUE_PRIOR_GAMES);
     }
 
     private void pruneRecursive(Node node, double normEvalBenchmark, int treeHeight) {

@@ -29,6 +29,8 @@ public abstract class Node {
 
     public double vp;
     public double lichessScore;
+    /** Number of the Lichess games {@link #lichessScore} is based on; 0 if unknown */
+    public long lichessGames;
     public double lichessVp;
     /**
      * Sum of chance * log2(my viable moves) over my decision nodes in the prep line below this node, where the number

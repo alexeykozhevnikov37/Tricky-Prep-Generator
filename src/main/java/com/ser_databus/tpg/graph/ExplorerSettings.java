@@ -5,6 +5,8 @@ import com.ser_databus.tpg.lichess.LichessDataSource;
 import com.ser_databus.tpg.lichess.LichessRating;
 import com.ser_databus.tpg.lichess.LichessRatingSelector;
 import com.ser_databus.tpg.prep.GeneratorSettings;
+import com.ser_databus.tpg.prep.NodeEvaluationMethod;
+import com.ser_databus.tpg.util.Const;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -24,7 +26,8 @@ import java.util.stream.Collectors;
 /**
  * The prep generator settings the user can edit in {@link SettingsDialog}, persisted in {@link #FILE}:
  * the numeric {@link Key}s, plus the eval source, the Lichess data source, the Lichess rating selector
- * (used only with {@link LichessDataSource#PUBLIC_API}) and whether minChance iteration is enabled.
+ * (used only with {@link LichessDataSource#PUBLIC_API}), whether minChance iteration is enabled and the node
+ * evaluation method.
  */
 @Slf4j
 public class ExplorerSettings {
@@ -37,6 +40,7 @@ public class ExplorerSettings {
     public static final LichessRating DEFAULT_LICHESS_RATING_FROM = LichessRating.R2200;
     public static final LichessRating DEFAULT_LICHESS_RATING_TO = LichessRating.R2500;
     public static final boolean DEFAULT_MIN_CHANCE_ITERATION_ENABLED = true;
+    public static final NodeEvaluationMethod DEFAULT_NODE_EVALUATION_METHOD = NodeEvaluationMethod.STOCKFISH;
 
     static final String EVAL_SOURCE_PROPERTY = "evalSource";
     static final String LICHESS_DATA_SOURCE_PROPERTY = "lichessDataSource";
@@ -44,6 +48,7 @@ public class ExplorerSettings {
     static final String LICHESS_RATING_FROM_PROPERTY = "lichessRatingFrom";
     static final String LICHESS_RATING_TO_PROPERTY = "lichessRatingTo";
     static final String MIN_CHANCE_ITERATION_PROPERTY = "isMinChanceIterationEnabled";
+    static final String NODE_EVALUATION_METHOD_PROPERTY = "nodeEvaluationMethod";
 
     static final String EVAL_SOURCE_HINT = "Where the engine evaluations come from.\n"
             + "Local engine only: every position is searched by the local Stockfish (its results are cached).\n"
@@ -64,6 +69,14 @@ public class ExplorerSettings {
             + "a rough prep early, and every iteration reuses the evaluations of the previous ones.\n"
             + "Off: the prep is built once, directly with min chance. Faster to the final result, but nothing "
             + "is shown until it's done.";
+    static final String NODE_EVALUATION_METHOD_HINT = "What the value of a position at the end of a prep line "
+            + "(and of the opponent's replies that aren't in the prep) is based on. The VP of the prep is the "
+            + "average of these values, weighted by the chance of each line.\n"
+            + "Engine only: the normalized engine eval.\n"
+            + "Lichess score, then engine: the average score of the Lichess players in the position, shrunk "
+            + "toward the normalized engine eval by " + Math.round(Const.NODE_VALUE_PRIOR_GAMES) + " games. "
+            + "A position played in few games is worth about its engine eval, one played in many games about "
+            + "its Lichess score; half and half at " + Math.round(Const.NODE_VALUE_PRIOR_GAMES) + " games.";
 
     public static String label(EvalSource source) {
         return switch (source) {
@@ -76,6 +89,13 @@ public class ExplorerSettings {
         return switch (source) {
             case LOCAL_ELITE_DB -> "Local database (Lichess Elite)";
             case PUBLIC_API -> "Lichess online (opening explorer)";
+        };
+    }
+
+    public static String label(NodeEvaluationMethod method) {
+        return switch (method) {
+            case STOCKFISH -> "Engine only";
+            case LICHESS_THEN_STOCKFISH -> "Lichess score, then engine (by number of games)";
         };
     }
 
@@ -158,6 +178,7 @@ public class ExplorerSettings {
     private LichessRating lichessRatingFrom = DEFAULT_LICHESS_RATING_FROM;
     private LichessRating lichessRatingTo = DEFAULT_LICHESS_RATING_TO;
     private boolean minChanceIterationEnabled = DEFAULT_MIN_CHANCE_ITERATION_ENABLED;
+    private NodeEvaluationMethod nodeEvaluationMethod = DEFAULT_NODE_EVALUATION_METHOD;
 
     public ExplorerSettings() {
         for (Key key : Key.values()) {
@@ -234,6 +255,14 @@ public class ExplorerSettings {
         this.minChanceIterationEnabled = minChanceIterationEnabled;
     }
 
+    public NodeEvaluationMethod getNodeEvaluationMethod() {
+        return nodeEvaluationMethod;
+    }
+
+    public void setNodeEvaluationMethod(NodeEvaluationMethod nodeEvaluationMethod) {
+        this.nodeEvaluationMethod = Objects.requireNonNull(nodeEvaluationMethod);
+    }
+
     /** Loads the settings from {@link #FILE}. Missing or invalid values get their defaults. Never throws. */
     public static ExplorerSettings load() {
         ExplorerSettings settings = new ExplorerSettings();
@@ -270,6 +299,8 @@ public class ExplorerSettings {
                 DEFAULT_LICHESS_DATA_SOURCE);
         settings.minChanceIterationEnabled = parseBoolean(properties, MIN_CHANCE_ITERATION_PROPERTY,
                 DEFAULT_MIN_CHANCE_ITERATION_ENABLED);
+        settings.nodeEvaluationMethod = parseEnum(properties, NODE_EVALUATION_METHOD_PROPERTY,
+                NodeEvaluationMethod.class, DEFAULT_NODE_EVALUATION_METHOD);
         boolean masters = parseBoolean(properties, LICHESS_MASTERS_PROPERTY, DEFAULT_LICHESS_MASTERS);
         LichessRating from = parseRating(properties, LICHESS_RATING_FROM_PROPERTY, DEFAULT_LICHESS_RATING_FROM);
         LichessRating to = parseRating(properties, LICHESS_RATING_TO_PROPERTY, DEFAULT_LICHESS_RATING_TO);
@@ -347,6 +378,9 @@ public class ExplorerSettings {
                 .append(LICHESS_RATING_TO_PROPERTY).append('=').append(lichessRatingTo.getRating()).append('\n');
         sb.append("\n# Build the prep in iterations with halving min chance (true/false)\n")
                 .append(MIN_CHANCE_ITERATION_PROPERTY).append('=').append(minChanceIterationEnabled).append('\n');
+        sb.append("\n# What the values of the prep line ends are based on (")
+                .append(enumNames(NodeEvaluationMethod.values())).append(")\n")
+                .append(NODE_EVALUATION_METHOD_PROPERTY).append('=').append(nodeEvaluationMethod.name()).append('\n');
         Files.writeString(FILE, sb.toString(), StandardCharsets.UTF_8);
         log.info("Settings are saved to {}", FILE.toAbsolutePath());
     }
@@ -367,6 +401,7 @@ public class ExplorerSettings {
                 .lichessRatingSelector(getLichessRatingSelector())
                 .evalSource(evalSource)
                 .isMinChanceIterationEnabled(minChanceIterationEnabled)
+                .nodeEvaluationMethod(nodeEvaluationMethod)
                 .build();
     }
 }

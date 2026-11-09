@@ -94,11 +94,13 @@ public class PrepGenerationService {
         try {
             callbacks.onStarted();
             ensurePrepEvaluator(settings.getLichessDataSource(), settings.getEvalSource());
-            log.info("Generating prep for {} from {} (Lichess: {}{}, evaluations: {}, minChance iteration: {})",
+            log.info("Generating prep for {} from {} (Lichess: {}{}, evaluations: {}, minChance iteration: {}, "
+                            + "node evaluation: {})",
                     side, fen, settings.getLichessDataSource(),
                     settings.getLichessDataSource() == LichessDataSource.PUBLIC_API
                             ? " " + settings.getLichessRatingSelector() : "",
-                    settings.getEvalSource(), settings.isMinChanceIterationEnabled() ? "on" : "off");
+                    settings.getEvalSource(), settings.isMinChanceIterationEnabled() ? "on" : "off",
+                    settings.getNodeEvaluationMethod());
             new IterativeDeepeningPrepEvaluator(settings, prepEvaluator)
                     .generateTrickyPrep(fen, side, settings.getLichessRatingSelector(), callbacks, isCancelled);
             callbacks.onFinished();

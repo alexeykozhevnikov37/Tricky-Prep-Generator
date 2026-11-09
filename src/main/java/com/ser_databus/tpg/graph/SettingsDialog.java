@@ -3,6 +3,7 @@ package com.ser_databus.tpg.graph;
 import com.ser_databus.tpg.evaluate.EvalSource;
 import com.ser_databus.tpg.lichess.LichessDataSource;
 import com.ser_databus.tpg.lichess.LichessRating;
+import com.ser_databus.tpg.prep.NodeEvaluationMethod;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.BooleanBinding;
 import javafx.event.ActionEvent;
@@ -51,6 +52,8 @@ public class SettingsDialog {
     private final ComboBox<LichessRating> ratingToBox = createEnumBox(LichessRating.values(), LichessRating::toString);
     private final CheckBox mastersBox = new CheckBox("Masters");
     private final CheckBox minChanceIterationBox = new CheckBox("Build the prep in iterations (halving min chance)");
+    private final ComboBox<NodeEvaluationMethod> nodeEvaluationMethodBox =
+            createEnumBox(NodeEvaluationMethod.values(), ExplorerSettings::label);
     private final Label errorLabel = new Label();
 
     public SettingsDialog(Window owner, ExplorerSettings settings) {
@@ -93,6 +96,10 @@ public class SettingsDialog {
                 ExplorerSettings.MIN_CHANCE_ITERATION_HINT, minChanceIterationBox);
         minChanceIterationBox.setTooltip(createTooltip(ExplorerSettings.MIN_CHANCE_ITERATION_PROPERTY,
                 ExplorerSettings.MIN_CHANCE_ITERATION_HINT));
+        addRow(grid, row++, "Node evaluation", ExplorerSettings.NODE_EVALUATION_METHOD_PROPERTY,
+                ExplorerSettings.NODE_EVALUATION_METHOD_HINT, nodeEvaluationMethodBox);
+        nodeEvaluationMethodBox.setTooltip(createTooltip(ExplorerSettings.NODE_EVALUATION_METHOD_PROPERTY,
+                ExplorerSettings.NODE_EVALUATION_METHOD_HINT));
         for (Key key : Key.values()) {
             Label label = new Label(key.label + ":");
             label.setTooltip(createTooltip(key.property, key.hint));
@@ -150,6 +157,7 @@ public class SettingsDialog {
         ratingFromBox.setValue(settings.getLichessRatingFrom());
         ratingToBox.setValue(settings.getLichessRatingTo());
         minChanceIterationBox.setSelected(settings.isMinChanceIterationEnabled());
+        nodeEvaluationMethodBox.setValue(settings.getNodeEvaluationMethod());
     }
 
     private void showDefaults() {
@@ -160,6 +168,7 @@ public class SettingsDialog {
         ratingFromBox.setValue(ExplorerSettings.DEFAULT_LICHESS_RATING_FROM);
         ratingToBox.setValue(ExplorerSettings.DEFAULT_LICHESS_RATING_TO);
         minChanceIterationBox.setSelected(ExplorerSettings.DEFAULT_MIN_CHANCE_ITERATION_ENABLED);
+        nodeEvaluationMethodBox.setValue(ExplorerSettings.DEFAULT_NODE_EVALUATION_METHOD);
     }
 
     private static GridPane createGrid() {
@@ -236,6 +245,7 @@ public class SettingsDialog {
         settings.setLichessDataSource(lichessDataSourceBox.getValue());
         settings.setLichessRatings(masters, from, to);
         settings.setMinChanceIterationEnabled(minChanceIterationBox.isSelected());
+        settings.setNodeEvaluationMethod(nodeEvaluationMethodBox.getValue());
         try {
             settings.save();
         } catch (IOException e) {

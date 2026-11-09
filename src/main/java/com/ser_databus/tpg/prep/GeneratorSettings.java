@@ -34,4 +34,7 @@ public class GeneratorSettings {
      */
     @Builder.Default
     private boolean isMinChanceIterationEnabled = true;
+    /** What the values of the nodes at the ends of the prep lines are based on: the engine only, or Lichess too. */
+    @Builder.Default
+    private NodeEvaluationMethod nodeEvaluationMethod = NodeEvaluationMethod.STOCKFISH;
 }

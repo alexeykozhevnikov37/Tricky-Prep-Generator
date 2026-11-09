@@ -32,4 +32,11 @@ public class Const {
      * small samples count less than big ones.
      */
     public static final double SCORE_PRIOR_GAMES = 50.;
+    /**
+     * With the node evaluation method LICHESS_THEN_STOCKFISH: the weight (in games) of the engine's normalized eval
+     * in the value of a node, the rest being the Lichess score. A position played n times is worth
+     * (n * lichessScore + NODE_VALUE_PRIOR_GAMES * normEval) / (n + NODE_VALUE_PRIOR_GAMES): half and half at
+     * n = NODE_VALUE_PRIOR_GAMES, almost the Lichess score at many times more games.
+     */
+    public static final double NODE_VALUE_PRIOR_GAMES = 50.;
 }
