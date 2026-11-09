@@ -16,7 +16,15 @@ public class Const {
      * what {@link #TYPICAL_INACCURACY_EVAL_LOSS} (0.3 pawns) loses near equality.
      */
     public static final double TYPICAL_INACCURACY_NORM_EVAL_LOSS = 0.05;
-    public static final int MIN_GAMES_FOR_OP_MOVE = 2;
+    public static final int MIN_GAMES_FOR_OP_MOVE = 1;
+    /**
+     * Distrust (in games) of the Lichess move frequencies from small samples: the chance of the opponent's move played
+     * n times out of N games in the position is n / (N + CHANCE_PRIOR_GAMES) instead of n / N. With few games it's
+     * well below the plain fraction (a move played in the only game of the position gets 1 / 4), with many games it's
+     * practically the plain fraction (99.7% of it at 1000 games). The rest of the chance goes to the offbeat
+     * continuations, which count with the engine's eval of the position.
+     */
+    public static final double CHANCE_PRIOR_GAMES = 3.;
     public static final int MIN_GAMES_FOR_VALID_SCORE = 25;
     /**
      * Weight (in games) of the engine's expectation when a Lichess score of my move is shrunk toward it: the score of

@@ -515,7 +515,7 @@ public class PrepEvaluator {
             }
             List<ReplyEval> replyEvals = new ArrayList<>();
             for (LichessMoveStats reply : replies) {
-                if (isOpMoveIrrelevant(chance * reply.getGames() / totalGames, reply)) {
+                if (isOpMoveIrrelevant(chance * getMoveShare(reply.getGames(), totalGames), reply)) {
                     continue;
                 }
                 Board afterReply = afterMove(after, lichessUciToMove(after, reply.uci));
@@ -525,7 +525,7 @@ public class PrepEvaluator {
                 double coveredShare = 0.;
                 double weightedNormEval = 0.;
                 for (ReplyEval replyEval : replyEvals) {
-                    double share = (double) replyEval.games() / totalGames;
+                    double share = getMoveShare(replyEval.games(), totalGames);
                     // No line: I have no legal moves after the reply
                     double replyNormEval = resultOf(replyEval.line()).map(le -> normalizeEval(le.eval))
                             .orElse(replyEval.afterReply().isMated() ? 0. : normalizeEval(0.));
@@ -563,7 +563,7 @@ public class PrepEvaluator {
             List<CompletableFuture<?>> requests = new ArrayList<>();
             Set<Move> relevantMoves = new HashSet<>();
             for (LichessMoveStats opMoveStat : opMoveStats) {
-                double moveChance = chance * opMoveStat.getGames() / totalGames;
+                double moveChance = chance * getMoveShare(opMoveStat.getGames(), totalGames);
                 if (isOpMoveIrrelevant(moveChance, opMoveStat)) {
                     continue;
                 }
@@ -615,9 +615,18 @@ public class PrepEvaluator {
         if (totalGames < MIN_GAMES_FOR_OP_MOVE) {
             return false;
         }
-        double firstMoveChance = chance * opMoveStats.get(0).getGames() / totalGames;
+        double firstMoveChance = chance * getMoveShare(opMoveStats.get(0).getGames(), totalGames);
         return firstMoveChance >= getDeepestLineChance()
                 && (firstMoveChance >= minChance || isDeepLine(opMoveStats, totalGames));
+    }
+
+    /**
+     * The estimated share of the games in the position in which the move is played: the fraction of the games,
+     * lowered for small samples by {@link Const#CHANCE_PRIOR_GAMES}. It approaches the plain fraction as the number of
+     * games grows. The shares of all moves add up to less than 1; the rest counts as offbeat continuations.
+     */
+    private static double getMoveShare(long moveGames, long totalGames) {
+        return moveGames / (totalGames + CHANCE_PRIOR_GAMES);
     }
 
     private static boolean isDeepLine(List<LichessMoveStats> opMoveStats, long totalGames) {
@@ -785,10 +794,10 @@ public class PrepEvaluator {
         Move firstMove = lichessUciToMove(board, opMoveStats.get(0).uci);
         long firstMoveGames = opMoveStats.get(0).getGames();
         boolean isDeepLine = isDeepLine(opMoveStats, totalGames);
-        if (opNode.chance * firstMoveGames / totalGames < getDeepestLineChance()) {
+        if (opNode.chance * getMoveShare(firstMoveGames, totalGames) < getDeepestLineChance()) {
             log.trace("processOpNode {}: so wide that even the first line is out of deep line, skip", opNode.moveHistory);
             return;
-        } else if (opNode.chance * firstMoveGames / totalGames < minChance && !isDeepLine) {
+        } else if (opNode.chance * getMoveShare(firstMoveGames, totalGames) < minChance && !isDeepLine) {
             log.trace("processOpNode {}: too small to consider, skip", opNode.fen);
             return;
         }
@@ -799,7 +808,7 @@ public class PrepEvaluator {
         CompletableFuture<Optional<LineEval>> bestLineFuture = engine.getBestLineAsync(board, depth);
         Map<Move, CompletableFuture<Optional<LineEval>>> lineAfterOpMoveFutures = new HashMap<>();
         for (LichessMoveStats opMoveStat : opMoveStats) {
-            double moveChance = opNode.chance * opMoveStat.getGames() / totalGames;
+            double moveChance = opNode.chance * getMoveShare(opMoveStat.getGames(), totalGames);
             if (isOpMoveIrrelevant(moveChance, opMoveStat)) {
                 continue;
             }
@@ -822,7 +831,7 @@ public class PrepEvaluator {
         for (LichessMoveStats opMoveStat : opMoveStats) {
             Move opMove = lichessUciToMove(board, opMoveStat.uci);
             log.trace("Analyzing opponent move " + opMove);
-            double moveChance = opNode.chance * opMoveStat.getGames() / totalGames;
+            double moveChance = opNode.chance * getMoveShare(opMoveStat.getGames(), totalGames);
             if (isOpMoveIrrelevant(moveChance, opMoveStat)) {
                 log.trace("Opponent move {} is too rare to encounter. Pass", opMove);
                 continue;
@@ -844,7 +853,7 @@ public class PrepEvaluator {
         if (!actualOpMoves.contains(bestOpMove)) {
             log.trace("The best opponent move " + bestOpMove + " is not present. Creating a stub leaf");
             LichessMoveStats moveStats = getMoveStatsByMove(opMoveStats, board, bestOpMove);
-            double moveChance = moveStats == null ? 0. : opNode.chance * moveStats.getGames() / totalGames;
+            double moveChance = moveStats == null ? 0. : opNode.chance * getMoveShare(moveStats.getGames(), totalGames);
             MyNode childNode = opNode.createChild(bestOpMove, moveChance);
             makeNodeStubLeaf(childNode, moveStats);
             newGenerationFlag = true;
